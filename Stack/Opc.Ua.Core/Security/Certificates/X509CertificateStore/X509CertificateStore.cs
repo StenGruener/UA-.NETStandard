@@ -246,29 +246,36 @@ namespace Opc.Ua
 
             bool crlExpired = true;
 
-            foreach (X509CRL crl in crls)
-            {
+foreach (X509CRL crl in crls)
+{
+    try
+    {
+        if (!X509Utils.CompareDistinguishedName(crl.IssuerName, issuer.SubjectName))
+        {
+            continue;
+        }
+    }
+    catch (CryptographicException)
+    {
+        continue;
+    }
 
-                if (!X509Utils.CompareDistinguishedName(crl.IssuerName, issuer.SubjectName))
-                {
-                    continue;
-                }
+    if (!crl.VerifySignature(issuer, false))
+    {
+        continue;
+    }
 
-                if (!crl.VerifySignature(issuer, false))
-                {
-                    continue;
-                }
+    if (crl.IsRevoked(certificate))
+    {
+        return (StatusCode)StatusCodes.BadCertificateRevoked;
+    }
 
-                if (crl.IsRevoked(certificate))
-                {
-                    return (StatusCode)StatusCodes.BadCertificateRevoked;
-                }
+    if (crl.ThisUpdate <= DateTime.UtcNow && (crl.NextUpdate == DateTime.MinValue || crl.NextUpdate >= DateTime.UtcNow))
+    {
+        crlExpired = false;
+    }
+}
 
-                if (crl.ThisUpdate <= DateTime.UtcNow && (crl.NextUpdate == DateTime.MinValue || crl.NextUpdate >= DateTime.UtcNow))
-                {
-                    crlExpired = false;
-                }
-            }
 
             // certificate is fine.
             if (!crlExpired)
@@ -404,3 +411,4 @@ namespace Opc.Ua
         private StoreLocation m_storeLocation;
     }
 }
+
